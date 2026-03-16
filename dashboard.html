@@ -1,32 +1,33 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>UPI Fraud Detector</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; background: #0f0f1a; color: #fff; padding: 20px; }
     h1 { text-align: center; color: #00d4ff; margin-bottom: 20px; font-size: 24px; }
-
-    .stats { display: flex; gap: 15px; margin-bottom: 25px; }
+    .stats { display: flex; gap: 15px; margin-bottom: 20px; }
     .stat-box { flex: 1; background: #1a1a2e; border-radius: 10px; padding: 15px; text-align: center; }
     .stat-box h2 { font-size: 28px; margin-bottom: 5px; }
     .stat-box p { color: #888; font-size: 13px; }
     .total h2 { color: #00d4ff; }
     .fraud h2 { color: #ff4444; }
     .safe h2 { color: #00cc66; }
-
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+    .chart-box { background: #1a1a2e; border-radius: 10px; padding: 15px; }
+    .chart-box h3 { color: #00d4ff; font-size: 14px; margin-bottom: 10px; }
     .controls { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
     button { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; }
     #startBtn { background: #00cc66; color: #fff; }
     #stopBtn { background: #ff4444; color: #fff; }
     #clearBtn { background: #555; color: #fff; }
-
     .alert-box { background: #ff000022; border: 2px solid #ff4444; border-radius: 10px;
       padding: 12px 16px; margin-bottom: 20px; display: none; text-align: center;
       color: #ff4444; font-size: 16px; font-weight: bold; animation: blink 1s infinite; }
-    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.4} }
     table { width: 100%; border-collapse: collapse; background: #1a1a2e; border-radius: 10px; overflow: hidden; }
     th { background: #16213e; padding: 12px; text-align: left; color: #00d4ff; font-size: 13px; }
     td { padding: 11px 12px; font-size: 13px; border-bottom: 1px solid #ffffff11; }
@@ -38,13 +39,27 @@
   </style>
 </head>
 <body>
-
   <h1>🛡️ UPI Fraud Detector — Live Dashboard</h1>
 
   <div class="stats">
     <div class="stat-box total"><h2 id="totalCount">0</h2><p>Total Transactions</p></div>
     <div class="stat-box fraud"><h2 id="fraudCount">0</h2><p>Fraud Detected</p></div>
     <div class="stat-box safe"><h2 id="safeCount">0</h2><p>Safe Transactions</p></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-box">
+      <h3>📈 Fraud vs Safe Trend</h3>
+      <div style="position:relative;height:200px;">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-box">
+      <h3>🥧 Fraud Distribution</h3>
+      <div style="position:relative;height:200px;">
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
   </div>
 
   <div class="controls">
@@ -57,13 +72,7 @@
 
   <table>
     <thead>
-      <tr>
-        <th>#</th>
-        <th>Amount (₹)</th>
-        <th>Hour</th>
-        <th>Status</th>
-        <th>Message</th>
-      </tr>
+      <tr><th>#</th><th>Amount (₹)</th><th>Hour</th><th>Status</th><th>Message</th></tr>
     </thead>
     <tbody id="txnBody"></tbody>
   </table>
@@ -71,6 +80,38 @@
   <script>
     let interval = null;
     let count = 0, frauds = 0, safes = 0;
+    let trendLabels = [], trendFraud = [], trendSafe = [];
+
+    const trendChart = new Chart(document.getElementById('trendChart'), {
+      type: 'line',
+      data: {
+        labels: trendLabels,
+        datasets: [
+          { label: 'Fraud', data: trendFraud, borderColor: '#ff4444', backgroundColor: '#ff444422', tension: 0.4, fill: true },
+          { label: 'Safe', data: trendSafe, borderColor: '#00cc66', backgroundColor: '#00cc6622', tension: 0.4, fill: true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#fff', font: { size: 11 } } } },
+        scales: {
+          x: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#ffffff11' } },
+          y: { ticks: { color: '#888' }, grid: { color: '#ffffff11' } }
+        }
+      }
+    });
+
+    const pieChart = new Chart(document.getElementById('pieChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Fraud', 'Safe'],
+        datasets: [{ data: [0, 1], backgroundColor: ['#ff4444', '#00cc66'], borderWidth: 0 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#fff' } } }
+      }
+    });
 
     async function checkTransaction(amount, hour) {
       const res = await fetch("http://127.0.0.1:8000/predict", {
@@ -93,6 +134,19 @@
       document.getElementById("totalCount").textContent = count;
       document.getElementById("fraudCount").textContent = frauds;
       document.getElementById("safeCount").textContent = safes;
+
+      if (count % 5 === 0) {
+        trendLabels.push(count);
+        trendFraud.push(frauds);
+        trendSafe.push(safes);
+        if (trendLabels.length > 10) {
+          trendLabels.shift(); trendFraud.shift(); trendSafe.shift();
+        }
+        trendChart.update();
+      }
+
+      pieChart.data.datasets[0].data = [frauds, safes];
+      pieChart.update();
 
       const tbody = document.getElementById("txnBody");
       const row = document.createElement("tr");
@@ -119,18 +173,17 @@
       addTransaction();
     }
 
-    function stopStream() {
-      clearInterval(interval);
-      interval = null;
-    }
+    function stopStream() { clearInterval(interval); interval = null; }
 
     function clearAll() {
       stopStream();
       count = 0; frauds = 0; safes = 0;
+      trendLabels.length = 0; trendFraud.length = 0; trendSafe.length = 0;
       document.getElementById("totalCount").textContent = 0;
       document.getElementById("fraudCount").textContent = 0;
       document.getElementById("safeCount").textContent = 0;
       document.getElementById("txnBody").innerHTML = "";
+      trendChart.update(); pieChart.update();
     }
   </script>
 </body>
