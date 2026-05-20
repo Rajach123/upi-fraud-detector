@@ -3,6 +3,9 @@ uvicorn[standard]
 pandas
 scikit-learn
 pydantic
+sqlalchemy
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
 xgboost
-shap
 numpy
