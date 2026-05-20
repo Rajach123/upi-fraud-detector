@@ -1,54 +1,45 @@
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from database import get_db, User
-import os
-from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import pickle
 
-load_dotenv()
+app = FastAPI()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+with open("fraud_model.pkl", "rb") as f:
+    model = pickle.load(f)
 
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+class Transaction(BaseModel):
+    amount: int
+    hour: int
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+@app.get("/")
+def home():
+    return {"message": "UPI Fraud Detector API is running!"}
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+@app.post("/auth/login")
+def login(req: LoginRequest):
+    if req.username == "admin" and req.password == "Admin@123":
+        return {"access_token": "admin-token-123", "token_type": "bearer"}
+    return {"error": "Invalid credentials"}
 
-    user = db.query(User).filter(User.username == username).first()
-    if user is None or not user.is_active:
-        raise credentials_exception
-    return user
-
-def require_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+@app.post("/predict")
+def predict(transaction: Transaction):
+    result = model.predict([[transaction.amount, transaction.hour]])
+    fraud = bool(result[0])
+    return {
+        "amount": transaction.amount,
+        "hour": transaction.hour,
+        "is_fraud": fraud,
+        "message": "🚨 FRAUD DETECTED!" if fraud else "✅ Transaction is Safe"
+    }
