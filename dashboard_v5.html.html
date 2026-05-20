@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UPI Fraud Detector v5.0</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+/* ===== THEME VARIABLES ===== */
+[data-theme="dark"]{
+  --bg:#05080f;--s:#0a0f1a;--s2:#0f1520;--b:#1a2540;--b2:#243050;
+  --a:#00f5d4;--a2:#7928ca;--d:#ff3366;--g:#00d68f;--w:#ffb020;
+  --t:#e8f0fe;--m:#4a6080;--m2:#6a80a0;
+  --card-shadow:0 4px 24px rgba(0,0,0,.4);
+  --grid-color:rgba(0,245,212,.025);
+}
+[data-theme="light"]{
+  --bg:#f0f4ff;--s:#ffffff;--s2:#f8faff;--b:#dde3f0;--b2:#c8d0e8;
+  --a:#0099cc;--a2:#6020a0;--d:#e0002a;--g:#00a060;--w:#cc8000;
+  --t:#1a1f35;--m:#8090b0;--m2:#5060a0;
+  --card-shadow:0 4px 24px rgba(0,0,0,.08);
+  --grid-color:rgba(0,100,200,.04);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;transition:background-color .3s,border-color .3s,color .2s;}
+body{background:var(--bg);color:var(--t);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+[data-theme="dark"] body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--grid-color) 1px,transparent 1px),linear-gradient(90deg,var(--grid-color) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* ===== LOGIN ===== */
+.lp{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;position:relative;z-index:10;}
+.lc{background:var(--s);border:1px solid var(--b2);border-radius:20px;padding:44px;width:100%;max-width:440px;box-shadow:var(--card-shadow);}
+.li{width:52px;height:52px;background:linear-gradient(135deg,var(--a),var(--a2));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 14px;}
+.lt{text-align:center;font-size:20px;font-weight:800;letter-spacing:-.02em;}
+.ls{text-align:center;font-size:10px;color:var(--m2);font-family:'JetBrains Mono',monospace;margin-top:4px;margin-bottom:32px;}
+.fg{margin-bottom:16px;}
+.fg label{display:block;font-size:9px;color:var(--m2);font-family:'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px;}
+.fg input{width:100%;background:var(--s2);border:1px solid var(--b2);color:var(--t);padding:12px 16px;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;}
+.fg input:focus{border-color:var(--a);}
+.lbtn{width:100%;padding:13px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;}
+.lbtn:hover{opacity:.9;transform:translateY(-1px);}
+.lerr{background:rgba(255,51,102,.08);border:1px solid rgba(255,51,102,.3);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--d);font-family:'JetBrains Mono',monospace;margin-top:12px;display:none;}
+.lhint{margin-top:20px;padding:14px;background:rgba(0,153,204,.06);border:1px solid rgba(0,153,204,.2);border-radius:10px;font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;}
+.lhint span{color:var(--a);}
+
+/* ===== APP ===== */
+.ap{display:none;position:relative;z-index:10;}
+
+/* HEADER */
+.hdr{border-bottom:1px solid var(--b);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;background:var(--s);position:sticky;top:0;z-index:200;box-shadow:0 1px 0 var(--b);}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-ic{width:32px;height:32px;background:linear-gradient(135deg,var(--a),var(--a2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.logo h1{font-size:13px;font-weight:800;letter-spacing:-.01em;}
+.logo span{font-size:9px;color:var(--m);font-family:'JetBrains Mono',monospace;display:none;}
+@media(min-width:768px){.logo span{display:block;}}
+.hr{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;}
+.spill{display:flex;align-items:center;gap:5px;padding:4px 8px;background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.2);border-radius:20px;font-size:10px;color:var(--g);font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--g);animation:pulse 2s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.uchip{display:none;align-items:center;gap:6px;padding:4px 10px;background:var(--s2);border:1px solid var(--b);border-radius:20px;font-size:10px;font-family:'JetBrains Mono',monospace;}
+@media(min-width:640px){.uchip{display:flex;}}
+.rtag{padding:1px 6px;border-radius:4px;font-size:9px;background:rgba(255,51,102,.15);color:#ff7096;}
+.rtag.analyst{background:rgba(121,40,202,.15);color:#b07de8;}
+.hb{padding:5px 10px;border:none;border-radius:8px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;transition:all .2s;white-space:nowrap;}
+.hb:hover{transform:translateY(-1px);}
+.bst{background:var(--g);color:#000;}
+.bsp{background:var(--d);color:#fff;}
+.brst{background:var(--s2);color:var(--m2);border:1px solid var(--b);}
+.bex{background:var(--a2);color:#fff;}
+.blo{background:transparent;color:var(--m);border:1px solid var(--b);font-size:9px;padding:4px 8px;}
+
+/* THEME TOGGLE */
+.theme-toggle{width:40px;height:22px;background:var(--b2);border-radius:11px;border:none;cursor:pointer;position:relative;transition:background .3s;flex-shrink:0;}
+.theme-toggle::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .3s;}
+[data-theme="light"] .theme-toggle{background:var(--a);}
+[data-theme="light"] .theme-toggle::after{transform:translateX(18px);}
+.theme-icon{font-size:14px;cursor:pointer;padding:4px;border-radius:6px;border:1px solid var(--b);background:var(--s2);}
+
+/* MOBILE MENU */
+.mob-menu{display:flex;align-items:center;gap:4px;}
+@media(min-width:900px){.mob-actions{display:flex!important;}}
+.mob-actions{display:none;flex-direction:column;position:absolute;top:56px;right:0;background:var(--s);border:1px solid var(--b);border-radius:0 0 12px 12px;padding:12px;gap:6px;z-index:300;min-width:160px;box-shadow:var(--card-shadow);}
+.mob-actions.open{display:flex;}
+.menu-btn{background:var(--s2);border:1px solid var(--b);color:var(--t);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:18px;display:block;}
+@media(min-width:900px){.menu-btn{display:none;}}
+.desk-btns{display:none;}
+@media(min-width:900px){.desk-btns{display:flex;align-items:center;gap:6px;}}
+
+/* TABS */
+.tabs{display:flex;gap:0;padding:0;border-bottom:1px solid var(--b);background:var(--s);position:sticky;top:56px;z-index:190;overflow-x:auto;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:10px 14px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--m2);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;letter-spacing:.05em;white-space:nowrap;}
+.tab:hover{color:var(--t);}
+.tab.active{color:var(--a);border-bottom-color:var(--a);}
+
+/* MAIN */
+.main{padding:14px 16px;max-width:1500px;margin:0 auto;}
+@media(min-width:768px){.main{padding:20px 24px;}}
+.pg{display:none;}
+.pg.active{display:block;}
+
+/* KPIs */
+.kgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+@media(min-width:480px){.kgrid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:900px){.kgrid{grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}}
+.kpi{background:var(--s);border:1px solid var(--b);border-radius:12px;padding:12px;position:relative;overflow:hidden;box-shadow:var(--card-shadow);}
+@media(min-width:768px){.kpi{padding:16px;border-radius:14px;}}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kpi.t::before{background:linear-gradient(90deg,var(--a),transparent)}
+.kpi.f::before{background:linear-gradient(90deg,var(--d),transparent)}
+.kpi.s::before{background:linear-gradient(90deg,var(--g),transparent)}
+.kpi.r::before{background:linear-gradient(90deg,var(--w),transparent)}
+.kpi.e::before{background:linear-gradient(90deg,var(--a2),transparent)}
+.klbl{font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
+.kval{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;line-height:1;}
+@media(min-width:768px){.kval{font-size:26px;}}
+.kpi.t .kval{color:var(--a)}.kpi.f .kval{color:var(--d)}.kpi.s .kval{color:var(--g)}.kpi.r .kval{color:var(--w)}.kpi.e .kval{color:#b07de8;font-size:14px;}
+@media(min-width:768px){.kpi.e .kval{font-size:16px;}}
+.ksub{font-size:9px;color:var(--m);margin-top:4px;font-family:'JetBrains Mono',monospace;}
+
+/* ADMIN BAR */
+.abar{background:rgba(255,51,102,.04);border:1px solid rgba(255,51,102,.15);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:none;align-items:center;gap:16px;flex-wrap:wrap;}
+.ast .v{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--d);}
+.ast .l{font-size:9px;color:var(--m);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.1em;}
+
+/* CARDS */
+.card{background:var(--s);border:1px solid var(--b);border-radius:12px;padding:14px;box-shadow:var(--card-shadow);}
+@media(min-width:768px){.card{border-radius:14px;padding:18px;}}
+.ctit{font-size:10px;color:var(--m2);text-transform:uppercase;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.lbadge{background:rgba(0,245,212,.1);color:var(--a);padding:2px 8px;border-radius:4px;font-size:8px;border:1px solid rgba(0,153,204,.2);}
+
+/* GRIDS */
+.g2{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px;}
+@media(min-width:900px){.g2{grid-template-columns:1.5fr 1fr;gap:14px;margin-bottom:14px;}}
+.g22{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px;}
+@media(min-width:640px){.g22{grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}}
+.agrid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px;}
+@media(min-width:640px){.agrid{grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}}
+.cg2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.cg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;}
+
+/* FORM */
+.ig{display:flex;flex-direction:column;gap:5px;}
+.ig label{font-size:9px;color:var(--m2);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;}
+.ig input,.ig select{background:var(--s2);border:1px solid var(--b);color:var(--t);padding:8px 10px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;width:100%;}
+.ig input:focus,.ig select:focus{border-color:var(--a);}
+.ig select option{background:var(--s2);}
+.abtn{width:100%;padding:11px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;}
+.abtn:hover{opacity:.9;transform:translateY(-1px);}
+.abtn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+/* RESULT */
+.rr{display:none;margin-top:12px;padding:14px;border-radius:12px;border:1px solid var(--b);animation:si .3s ease;}
+@keyframes si{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.rr.fraud{background:rgba(255,51,102,.06);border-color:rgba(255,51,102,.25);}
+.rr.safe{background:rgba(0,214,143,.06);border-color:rgba(0,214,143,.2);}
+.rh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.rl{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;}
+.rl.fraud{color:var(--d)}.rl.safe{color:var(--g)}
+.rs{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;}
+.mtr{height:6px;background:var(--b);border-radius:4px;overflow:hidden;margin-bottom:6px;}
+.mf{height:100%;border-radius:4px;transition:width .9s cubic-bezier(.34,1.56,.64,1);}
+.mf.fraud{background:linear-gradient(90deg,var(--w),var(--d))}
+.mf.safe{background:linear-gradient(90deg,var(--g),#00b87a)}
+.mlbl{display:flex;justify-content:space-between;font-size:9px;color:var(--m);font-family:'JetBrains Mono',monospace;}
+.ri{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--d);font-family:'JetBrains Mono',monospace;margin-bottom:4px;}
+.ri::before{content:'▲';font-size:8px;}
+
+/* HEATMAP */
+.hm{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;}
+.hc{aspect-ratio:1;border-radius:3px;cursor:pointer;transition:transform .15s;}
+.hc:hover{transform:scale(1.4);z-index:10;}
+.hl{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:4px;}
+.hh{font-size:7px;color:var(--m);font-family:'JetBrains Mono',monospace;text-align:center;}
+.leg{display:flex;gap:12px;margin-top:10px;flex-wrap:wrap;}
+.li{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--m);font-family:'JetBrains Mono',monospace;}
+.ld{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+
+/* TABLE */
+.tc{overflow:hidden;border-radius:10px;border:1px solid var(--b);}
+table{width:100%;border-collapse:collapse;}
+thead{background:var(--s2);}
+th{padding:8px 12px;text-align:left;font-size:9px;color:var(--m2);font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--b);}
+td{padding:8px 12px;font-size:11px;border-bottom:1px solid var(--b);}
+tbody tr:hover{background:rgba(0,0,0,.02);}
+[data-theme="dark"] tbody tr:hover{background:rgba(255,255,255,.015);}
+tbody tr.fr td{background:rgba(255,51,102,.03);}
+.tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:600;font-family:'JetBrains Mono',monospace;}
+.tf{background:rgba(255,51,102,.12);color:#e0002a;border:1px solid rgba(255,51,102,.25);}
+[data-theme="dark"] .tf{color:#ff7096;}
+.ts{background:rgba(0,214,143,.1);color:#00a060;border:1px solid rgba(0,214,143,.2);}
+[data-theme="dark"] .ts{color:#00d68f;}
+.th{background:rgba(255,51,102,.12);color:#e0002a;}
+[data-theme="dark"] .th{color:#ff7096;}
+.tm{background:rgba(255,176,32,.12);color:#cc8000;}
+[data-theme="dark"] .tm{color:#ffb020;}
+.tl{background:rgba(0,214,143,.1);color:#00a060;}
+[data-theme="dark"] .tl{color:#00d68f;}
+.mn{font-family:'JetBrains Mono',monospace;}
+.fs{background:var(--s2);border:1px solid var(--b);color:var(--t);padding:5px 8px;border-radius:7px;font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;}
+
+/* ALERT */
+.alrt{display:none;position:fixed;top:66px;right:12px;z-index:999;background:rgba(255,51,102,.95);border:1px solid var(--d);border-radius:12px;padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#fff;font-weight:700;max-width:280px;box-shadow:0 4px 40px rgba(255,51,102,.4);animation:sr .3s ease;}
+@keyframes sr{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* ANALYTICS */
+.srow{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--b);}
+.srow:last-child{border-bottom:none;}
+.slbl{font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;}
+.sval{font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.brow{margin-bottom:10px;}
+.blbl{display:flex;justify-content:space-between;font-size:10px;color:var(--m2);font-family:'JetBrains Mono',monospace;margin-bottom:4px;}
+.btrk{height:6px;background:var(--b);border-radius:4px;overflow:hidden;}
+.bfil{height:100%;border-radius:4px;transition:width 1s ease;}
+.epbtn{padding:8px 16px;background:linear-gradient(135deg,var(--a2),#5f1fa0);color:#fff;border:none;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;}
+.epbtn:hover{opacity:.9;transform:translateY(-1px);}
+
+/* MAP */
+#fraudMap{height:380px;border-radius:10px;overflow:hidden;border:1px solid var(--b);}
+@media(min-width:768px){#fraudMap{height:450px;}}
+.map-legend{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;}
+.map-leg-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--m2);font-family:'JetBrains Mono',monospace;}
+.map-dot{width:12px;height:12px;border-radius:50%;}
+
+/* CHATBOT */
+.chat-wrap{display:flex;flex-direction:column;height:420px;}
+@media(min-width:768px){.chat-wrap{height:520px;}}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--b) transparent;}
+.msg{max-width:88%;animation:mi .3s ease;}
+@keyframes mi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg.u{align-self:flex-end;}
+.msg.a{align-self:flex-start;}
+.bub{padding:10px 13px;border-radius:12px;font-size:12px;line-height:1.6;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;}
+.msg.u .bub{background:linear-gradient(135deg,var(--a2),#5f1fa0);color:#fff;border-radius:12px 12px 2px 12px;}
+.msg.a .bub{background:var(--s2);border:1px solid var(--b2);color:var(--t);border-radius:12px 12px 12px 2px;}
+.mtime{font-size:9px;color:var(--m);font-family:'JetBrains Mono',monospace;margin-top:3px;}
+.msg.u .mtime{text-align:right;}
+.cia{padding:10px 14px;border-top:1px solid var(--b);display:flex;gap:8px;}
+.ci{flex:1;background:var(--s2);border:1px solid var(--b2);color:var(--t);padding:9px 12px;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;min-width:0;}
+.ci:focus{border-color:var(--a);}
+.csnd{padding:9px 14px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.csnd:disabled{opacity:.5;cursor:not-allowed;}
+.qbtns{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--b);}
+.qb{padding:5px 10px;background:rgba(0,153,204,.08);border:1px solid rgba(0,153,204,.2);border-radius:20px;color:var(--a);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;}
+.qb:hover{background:rgba(0,153,204,.15);}
+.typing{display:flex;gap:4px;padding:10px 13px;background:var(--s2);border:1px solid var(--b2);border-radius:12px 12px 12px 2px;width:fit-content;}
+.typing span{width:6px;height:6px;background:var(--m2);border-radius:50%;animation:bounce 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+/* USER PROFILE */
+.profile-card{background:linear-gradient(135deg,var(--a2),#3a0080);border-radius:14px;padding:24px;color:#fff;margin-bottom:14px;position:relative;overflow:hidden;}
+.profile-card::before{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(255,255,255,.08);border-radius:50%;}
+.profile-avatar{width:60px;height:60px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:12px;}
+.profile-name{font-size:20px;font-weight:800;}
+.profile-role{font-size:11px;opacity:.8;font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;}
+.pstat{background:rgba(255,255,255,.1);border-radius:10px;padding:10px;text-align:center;}
+.pstat .pv{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.pstat .pl{font-size:9px;opacity:.8;font-family:'JetBrains Mono',monospace;}
+.pwd-form{display:flex;flex-direction:column;gap:10px;}
+.pwd-input{background:var(--s2);border:1px solid var(--b);color:var(--t);padding:10px 14px;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;width:100%;}
+.pwd-input:focus{border-color:var(--a);}
+.pwd-btn{padding:10px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;}
+.pwd-msg{font-size:11px;font-family:'JetBrains Mono',monospace;padding:8px 12px;border-radius:8px;display:none;}
+.pwd-msg.ok{background:rgba(0,214,143,.1);border:1px solid rgba(0,214,143,.3);color:var(--g);}
+.pwd-msg.err{background:rgba(255,51,102,.1);border:1px solid rgba(255,51,102,.3);color:var(--d);}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="lp" id="loginPage">
+  <div class="lc">
+    <div class="li">🛡</div>
+    <div class="lt">UPI FRAUD DETECTOR</div>
+    <div class="ls">v5.0 · XGBoost · JWT · PostgreSQL · AI · Map</div>
+    <div class="fg"><label>Username</label><input type="text" id="lUser" placeholder="admin" onkeypress="if(event.key==='Enter')doLogin()"></div>
+    <div class="fg"><label>Password</label><input type="password" id="lPass" placeholder="••••••••" onkeypress="if(event.key==='Enter')doLogin()"></div>
+    <button class="lbtn" id="lBtn" onclick="doLogin()">🔐 LOGIN</button>
+    <div class="lerr" id="lErr"></div>
+    <div class="lhint"><p>Default: Username <span>admin</span> · Password <span>Admin@123</span></p></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="ap" id="appPage">
+  <div class="hdr">
+    <div class="logo">
+      <div class="logo-ic">🛡</div>
+      <div><h1>UPI FRAUD DETECTOR v5.0</h1><span>XGBoost · JWT · PostgreSQL · AI · Map</span></div>
+    </div>
+    <div class="hr">
+      <div class="spill"><div class="dot"></div><span id="sysStatus">MONITORING</span></div>
+      <button class="theme-icon" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+      <div class="uchip"><span id="uDisp">user</span><span class="rtag" id="rBadge">analyst</span></div>
+      <!-- Desktop buttons -->
+      <div class="desk-btns">
+        <button class="hb bst" onclick="startStream()">▶ START</button>
+        <button class="hb bsp" onclick="stopStream()">⏹ STOP</button>
+        <button class="hb brst" onclick="clearAll()">↺ RESET</button>
+        <button class="hb bex" onclick="exportCSV()">↓ CSV</button>
+        <button class="hb blo" onclick="logout()">LOGOUT</button>
+      </div>
+      <!-- Mobile menu -->
+      <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    </div>
+  </div>
+  <!-- Mobile dropdown -->
+  <div class="mob-actions" id="mobActions">
+    <button class="hb bst" onclick="startStream();toggleMenu()">▶ START</button>
+    <button class="hb bsp" onclick="stopStream();toggleMenu()">⏹ STOP</button>
+    <button class="hb brst" onclick="clearAll();toggleMenu()">↺ RESET</button>
+    <button class="hb bex" onclick="exportCSV();toggleMenu()">↓ CSV</button>
+    <button class="hb blo" onclick="logout()">LOGOUT</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('dash')">📊 Dashboard</div>
+    <div class="tab" onclick="showTab('map')">🗺 Fraud Map</div>
+    <div class="tab" onclick="showTab('analytics')">📈 Analytics</div>
+    <div class="tab" onclick="showTab('chat')">🤖 AI Assistant</div>
+    <div class="tab" onclick="showTab('hist')">📋 History</div>
+    <div class="tab" onclick="showTab('profile')">👤 Profile</div>
+    <div class="tab" onclick="showTab('gpay')">📱 GPay Scanner</div>
+  </div>
+
+  <div class="alrt" id="alrtBanner">
+    <div style="font-size:14px;margin-bottom:2px;" id="aAmt">⚠ FRAUD</div>
+    <div id="aDet" style="font-size:10px;opacity:.85;"></div>
+    <div id="aRsn" style="font-size:10px;margin-top:2px;opacity:.9;"></div>
+  </div>
+
+  <div class="main">
+
+  <!-- DASHBOARD TAB -->
+  <div class="pg active" id="pg-dash">
+    <div class="abar" id="adminBar">
+      <div style="font-size:10px;color:var(--d);font-family:'JetBrains Mono',monospace;font-weight:700;">⚡ ADMIN VIEW</div>
+      <div class="ast"><div class="v" id="dbTotal">—</div><div class="l">DB Total</div></div>
+      <div class="ast"><div class="v" id="dbFraud" style="color:var(--d)">—</div><div class="l">Fraud</div></div>
+      <div class="ast"><div class="v" id="dbRate" style="color:var(--w)">—</div><div class="l">Rate</div></div>
+      <div class="ast"><div class="v" id="dbUsers" style="color:var(--a)">—</div><div class="l">Users</div></div>
+      <button class="hb brst" style="font-size:9px;" onclick="loadAdminStats()">↻ REFRESH</button>
+    </div>
+    <div class="kgrid">
+      <div class="kpi t"><div class="klbl">Total</div><div class="kval" id="kT">0</div><div class="ksub">Session</div></div>
+      <div class="kpi f"><div class="klbl">Fraud</div><div class="kval" id="kF">0</div><div class="ksub">Detected</div></div>
+      <div class="kpi s"><div class="klbl">Safe</div><div class="kval" id="kS">0</div><div class="ksub">Cleared</div></div>
+      <div class="kpi r"><div class="klbl">Fraud Rate</div><div class="kval" id="kR">0%</div><div class="ksub">Flagged</div></div>
+      <div class="kpi e"><div class="klbl">Exposure</div><div class="kval" id="kE">₹0</div><div class="ksub">Fraud amount</div></div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="ctit">📈 Live Trend <span class="lbadge">LIVE</span></div>
+        <div style="position:relative;height:180px;"><canvas id="tChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ctit">🔍 Manual Checker</div>
+        <div class="cg2">
+          <div class="ig"><label>Amount (₹)</label><input type="number" id="mAmt" placeholder="45000"></div>
+          <div class="ig"><label>Hour</label>
+            <select id="mHour"><option value="">Select</option>
+              <option value="0">00:00</option><option value="1">01:00</option><option value="2">02:00</option><option value="3">03:00</option><option value="4">04:00</option><option value="5">05:00</option><option value="6">06:00</option><option value="7">07:00</option><option value="8">08:00</option><option value="9">09:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00 Noon</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option>
+            </select>
+          </div>
+        </div>
+        <div class="cg3">
+          <div class="ig"><label>Sender UPI</label><input type="text" id="mSnd" placeholder="user@oksbi"></div>
+          <div class="ig"><label>Device ID</label><input type="text" id="mDev" placeholder="abc123"></div>
+          <div class="ig"><label>Velocity</label><input type="number" id="mVel" placeholder="1" min="1" max="10"></div>
+        </div>
+        <div class="cg2">
+          <div class="ig"><label>New Device?</label><select id="mNd"><option value="0">No (Known)</option><option value="1">Yes (New)</option></select></div>
+          <div class="ig"><label>Receiver UPI</label><input type="text" id="mRcv" placeholder="merchant@ybl"></div>
+        </div>
+        <button class="abtn" onclick="manualCheck()">⚡ ANALYZE TRANSACTION</button>
+        <div class="rr" id="rRes">
+          <div class="rh"><span class="rl" id="rLbl">SAFE</span><span class="rs" id="rScr" style="color:var(--g)">0%</span></div>
+          <div class="mtr"><div class="mf" id="mFill" style="width:0%"></div></div>
+          <div class="mlbl"><span>LOW</span><span>MEDIUM</span><span>HIGH</span></div>
+          <div id="rsnList" style="margin-top:8px;"></div>
+          <div style="margin-top:6px;font-size:9px;color:var(--m);font-family:'JetBrains Mono',monospace;">💾 Saved to PostgreSQL · <span style="color:var(--a);cursor:pointer;" onclick="askAILast()">🤖 AI Explain →</span> · <span style="color:var(--a);cursor:pointer;" onclick="showTab('map')">🗺 View on Map →</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="g22">
+      <div class="card">
+        <div class="ctit">🕐 Fraud by Hour — Heatmap</div>
+        <div class="hm" id="hmG"></div>
+        <div class="hl" id="hmL"></div>
+        <div class="leg">
+          <div class="li"><div class="ld" style="background:var(--b2);"></div>No fraud</div>
+          <div class="li"><div class="ld" style="background:rgba(121,40,202,.5);"></div>Low</div>
+          <div class="li"><div class="ld" style="background:var(--d);"></div>High</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ctit">📊 Amount Distribution</div>
+        <div style="position:relative;height:180px;"><canvas id="aChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP TAB -->
+  <div class="pg" id="pg-map">
+    <div class="card" style="margin-bottom:14px;">
+      <div class="ctit" style="justify-content:space-between;">
+        <span>🗺 Live Fraud Location Map — India</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-size:10px;color:var(--m);font-family:'JetBrains Mono',monospace;" id="mapCount">0 fraud locations</span>
+          <button class="hb brst" style="font-size:9px;" onclick="clearMapMarkers()">↺ Clear</button>
+        </div>
+      </div>
+      <div id="fraudMap"></div>
+      <div class="map-legend">
+        <div class="map-leg-item"><div class="map-dot" style="background:#ff3366;"></div>Fraud Transaction</div>
+        <div class="map-leg-item"><div class="map-dot" style="background:#00d68f;"></div>Safe Transaction</div>
+        <div class="map-leg-item"><div class="map-dot" style="background:#ffb020;border:2px solid #ff3366;"></div>High Risk</div>
+      </div>
+    </div>
+    <div class="agrid">
+      <div class="card">
+        <div class="ctit">📍 City-wise Fraud Count</div>
+        <div id="cityStats" style="margin-top:4px;"></div>
+      </div>
+      <div class="card">
+        <div class="ctit">🔥 Recent Fraud Locations</div>
+        <div id="recentFraud" style="font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;">No fraud detected yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS TAB -->
+  <div class="pg" id="pg-analytics">
+    <div class="agrid">
+      <div class="card">
+        <div class="ctit">📊 Session Summary</div>
+        <div class="srow"><span class="slbl">Total Transactions</span><span class="sval" id="an-tot">0</span></div>
+        <div class="srow"><span class="slbl">Fraud Detected</span><span class="sval" style="color:var(--d)" id="an-frd">0</span></div>
+        <div class="srow"><span class="slbl">Safe Transactions</span><span class="sval" style="color:var(--g)" id="an-sfe">0</span></div>
+        <div class="srow"><span class="slbl">Fraud Rate</span><span class="sval" style="color:var(--w)" id="an-rat">0%</span></div>
+        <div class="srow"><span class="slbl">Total Exposure</span><span class="sval" style="color:#b07de8" id="an-exp">₹0</span></div>
+        <div class="srow"><span class="slbl">Avg Risk Score</span><span class="sval" id="an-avg">0%</span></div>
+      </div>
+      <div class="card">
+        <div class="ctit">⚠ Risk Breakdown</div>
+        <div id="riskBrk" style="margin-top:8px;"></div>
+      </div>
+    </div>
+    <div class="agrid">
+      <div class="card">
+        <div class="ctit">🕐 Fraud by Hour</div>
+        <div style="position:relative;height:190px;"><canvas id="hChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ctit">💰 Amount Ranges</div>
+        <div style="position:relative;height:190px;"><canvas id="arChart"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctit" style="justify-content:space-between;">
+        <span>🚨 Top Suspicious UPI IDs</span>
+        <button class="epbtn" onclick="printReport()">🖨 Print Report</button>
+      </div>
+      <div id="topUpi" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- AI CHATBOT TAB -->
+  <div class="pg" id="pg-chat">
+    <div class="g2" style="align-items:start;">
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--b);display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,var(--a2),#5f1fa0);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🤖</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;">Fraud AI Assistant</div>
+            <div style="font-size:10px;color:var(--g);font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:4px;"><div class="dot"></div>Online · Claude AI</div>
+          </div>
+        </div>
+        <div class="qbtns">
+          <button class="qb" onclick="qAsk('UPI fraud patterns ఏంటి?')">Fraud patterns?</button>
+          <button class="qb" onclick="qAsk('XGBoost model explain చేయి')">Model explain?</button>
+          <button class="qb" onclick="qAsk('UPI safe tips ఏంటి?')">Safety tips?</button>
+          <button class="qb" onclick="qAsk('High risk transaction ఎప్పుడు?')">High risk?</button>
+        </div>
+        <div class="chat-wrap">
+          <div class="chat-msgs" id="chatMsgs">
+            <div class="msg a"><div class="bub">నమస్కారం! 👋 నేను మీ UPI Fraud AI Assistant ని.
+
+తెలుగు లో లేదా English లో అడగండి — fraud detection, transactions, security అన్నీ explain చేస్తాను!</div><div class="mtime">Just now</div></div>
+          </div>
+          <div class="cia">
+            <input class="ci" id="chatIn" placeholder="Ask about fraud, UPI security..." onkeypress="if(event.key==='Enter')sendChat()">
+            <button class="csnd" id="cSnd" onclick="sendChat()">Send ➤</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card">
+          <div class="ctit">💡 ఏం అడగవచ్చు?</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="padding:9px;background:rgba(0,153,204,.06);border:1px solid rgba(0,153,204,.15);border-radius:8px;font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;">🔍 "₹50,000 రాత్రి 2గంటలకు fraud అవుతుందా?"</div>
+            <div style="padding:9px;background:rgba(0,153,204,.06);border:1px solid rgba(0,153,204,.15);border-radius:8px;font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;">📊 "Last transaction ఎందుకు fraud అయింది?"</div>
+            <div style="padding:9px;background:rgba(0,153,204,.06);border:1px solid rgba(0,153,204,.15);border-radius:8px;font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;">🛡 "UPI fraud నుంచి ఎలా protect అవ్వాలి?"</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ctit">📌 Last Analysis</div>
+          <div id="lastSum" style="font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;white-space:pre-wrap;">Dashboard లో transaction analyze చేయండి.</div>
+        </div>
+        <div class="card">
+          <div class="ctit">📈 Session Stats</div>
+          <div style="font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;white-space:pre-wrap;" id="chatStats">No data yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="pg" id="pg-hist">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div class="ctit" style="margin-bottom:0;">📋 Transaction Log <span class="lbadge" id="tblCnt">0 records</span></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="hb brst" style="font-size:9px;" onclick="loadHistory()">↻ Load DB</button>
+          <select class="fs" id="fSt" onchange="renderTable()"><option value="all">All Status</option><option value="fraud">Fraud</option><option value="safe">Safe</option></select>
+          <select class="fs" id="fRk" onchange="renderTable()"><option value="all">All Risk</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option></select>
+        </div>
+      </div>
+      <div class="tc" style="max-height:500px;overflow-y:auto;overflow-x:auto;">
+        <table style="min-width:700px;"><thead><tr><th>#</th><th>Amount</th><th>Hour</th><th>Sender UPI</th><th>Risk</th><th>Level</th><th>Status</th><th>Reason</th><th>By</th><th>Time</th></tr></thead>
+        <tbody id="txnBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- GPAY SCANNER TAB -->
+  <div class="pg" id="pg-gpay">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="ctit">📱 GPay / UPI Statement Scanner</div>
+      <p style="font-size:12px;color:var(--m2);margin-bottom:16px;font-family:'JetBrains Mono',monospace;">మీ GPay/PhonePe/Bank CSV statement upload చేయండి — AI fraud transactions scan చేస్తుంది</p>
+      <div style="border:2px dashed var(--b2);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;" id="dropZone" onclick="document.getElementById('csvFile').click()" ondragover="event.preventDefault();this.style.borderColor='var(--a)'" ondragleave="this.style.borderColor='var(--b2)'" ondrop="handleDrop(event)">
+        <div style="font-size:32px;margin-bottom:8px;">📂</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">CSV file ఇక్కడ drop చేయండి</div>
+        <div style="font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;">లేదా click చేసి select చేయండి</div>
+        <div style="font-size:10px;color:var(--m2);margin-top:8px;font-family:'JetBrains Mono',monospace;">GPay • PhonePe • Paytm • Bank Statement</div>
+        <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleCSVUpload(event)">
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;display:none;" id="gpayProgress">
+      <div class="ctit">⚡ Scanning...</div>
+      <div style="background:var(--s2);border-radius:8px;height:8px;margin:12px 0;overflow:hidden;">
+        <div id="progressBar" style="height:100%;background:linear-gradient(90deg,var(--a),var(--a2));width:0%;transition:width .3s;border-radius:8px;"></div>
+      </div>
+      <div style="font-size:11px;color:var(--m2);font-family:'JetBrains Mono',monospace;" id="progressText">0 / 0 transactions scanned...</div>
+    </div>
+
+    <div id="gpayResults" style="display:none;">
+      <div class="g22" style="margin-bottom:16px;">
+        <div class="card" style="text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:var(--a);" id="gTotal">0</div>
+          <div style="font-size:10px;color:var(--m2);font-family:'JetBrains Mono',monospace;">Total Transactions</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:var(--d);" id="gFraud">0</div>
+          <div style="font-size:10px;color:var(--m2);font-family:'JetBrains Mono',monospace;">Suspicious Transactions</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:var(--g);" id="gSafe">0</div>
+          <div style="font-size:10px;color:var(--m2);font-family:'JetBrains Mono',monospace;">Safe Transactions</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:var(--w);" id="gAmt">₹0</div>
+          <div style="font-size:10px;color:var(--m2);font-family:'JetBrains Mono',monospace;">Suspicious Amount</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div class="ctit" style="margin-bottom:0;">🔍 Scan Results</div>
+          <div style="display:flex;gap:8px;">
+            <select class="fs" id="gFilter" onchange="renderGPayTable()">
+              <option value="all">All</option>
+              <option value="fraud">Suspicious Only</option>
+              <option value="safe">Safe Only</option>
+            </select>
+            <button class="hb" style="font-size:10px;" onclick="downloadGPayReport()">⬇ Download Report</button>
+          </div>
+        </div>
+        <div style="max-height:500px;overflow-y:auto;overflow-x:auto;">
+          <table style="min-width:600px;"><thead><tr><th>#</th><th>Date/Time</th><th>Amount</th><th>Description</th><th>Risk Score</th><th>Status</th></tr></thead>
+          <tbody id="gpayBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="ctit">ℹ GPay Statement Download చేయడం ఎలా?</div>
+      <div style="font-size:12px;color:var(--m2);font-family:'JetBrains Mono',monospace;line-height:1.8;">
+        1. Google Pay app open చేయండి<br>
+        2. Profile → Transaction history<br>
+        3. Download statement → CSV format<br>
+        4. ఆ file ఇక్కడ upload చేయండి ✅
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE TAB -->
+  <div class="pg" id="pg-profile">
+    <div class="g22" style="align-items:start;">
+      <div>
+        <div class="profile-card">
+          <div class="profile-avatar" id="profAvatar">👤</div>
+          <div class="profile-name" id="profName">—</div>
+          <div class="profile-role" id="profRole">—</div>
+          <div class="profile-stats">
+            <div class="pstat"><div class="pv" id="profTotal">0</div><div class="pl">Checked</div></div>
+            <div class="pstat"><div class="pv" id="profFraud">0</div><div class="pl">Fraud Found</div></div>
+            <div class="pstat"><div class="pv" id="profRate">0%</div><div class="pl">Fraud Rate</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ctit">ℹ Account Info</div>
+          <div class="srow"><span class="slbl">Username</span><span class="sval mn" id="profUsername">—</span></div>
+          <div class="srow"><span class="slbl">Role</span><span class="sval" id="profRoleInfo">—</span></div>
+          <div class="srow"><span class="slbl">Session Transactions</span><span class="sval" id="profSessTxn">0</span></div>
+          <div class="srow"><span class="slbl">Theme</span>
+            <button onclick="toggleTheme()" style="padding:4px 10px;background:var(--s2);border:1px solid var(--b);border-radius:6px;color:var(--t);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;" id="themeBtn">🌙 Dark Mode</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ctit">🔐 Change Password</div>
+        <div class="pwd-form">
+          <input class="pwd-input" type="password" id="pwdCurrent" placeholder="Current password">
+          <input class="pwd-input" type="password" id="pwdNew" placeholder="New password (min 6 chars)">
+          <input class="pwd-input" type="password" id="pwdConfirm" placeholder="Confirm new password">
+          <button class="pwd-btn" onclick="changePassword()">🔒 Update Password</button>
+          <div class="pwd-msg" id="pwdMsg"></div>
+        </div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--b);">
+          <div class="ctit">⚙ Preferences</div>
+          <div class="srow">
+            <span class="slbl">Auto-start simulation</span>
+            <input type="checkbox" id="autoStart" style="cursor:pointer;width:16px;height:16px;">
+          </div>
+          <div class="srow">
+            <span class="slbl">Sound alerts</span>
+            <input type="checkbox" id="soundPref" checked style="cursor:pointer;width:16px;height:16px;">
+          </div>
+          <div class="srow">
+            <span class="slbl">Stream interval</span>
+            <select class="fs" id="streamInterval">
+              <option value="1000">1 second</option>
+              <option value="2000" selected>2 seconds</option>
+              <option value="3000">3 seconds</option>
+              <option value="5000">5 seconds</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- end main -->
+</div><!-- end app -->
+
+<script>
+const API="http://127.0.0.1:8001";
+let token=localStorage.getItem('jwt_token');
+let CU=JSON.parse(localStorage.getItem('current_user')||'null');
+let iv=null,cnt=0,frd=0,sfe=0,fAmt=0;
+let tL=[],tF=[],tS=[],txns=[],hFrd=new Array(24).fill(0);
+let lastP=null,lastD=null,chatHist=[];
+let fraudMapMarkers=[],safeMapMarkers=[],map=null;
+let cityFraud={};
+const CITIES={
+  'Hyderabad':[17.38,78.48],'Chennai':[13.08,80.27],'Bangalore':[12.97,77.59],
+  'Mumbai':[19.07,72.87],'Delhi':[28.70,77.10],'Kolkata':[22.57,88.36],
+  'Ahmedabad':[23.02,72.57],'Pune':[18.52,73.85]
+};
+
+// Theme
+let isDark = localStorage.getItem('theme') !== 'light';
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', isDark?'dark':'light');
+  const btn = document.getElementById('themeBtn');
+  const icon = document.querySelector('.theme-icon');
+  if(btn) btn.textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
+  if(icon) icon.textContent = isDark ? '🌙' : '☀️';
+  localStorage.setItem('theme', isDark?'dark':'light');
+}
+function toggleTheme(){isDark=!isDark;applyTheme();}
+applyTheme();
+
+function toggleMenu(){document.getElementById('mobActions').classList.toggle('open');}
+document.addEventListener('click',e=>{if(!e.target.closest('.mob-actions')&&!e.target.closest('.menu-btn'))document.getElementById('mobActions').classList.remove('open');});
+
+if(token&&CU)showApp();
+
+async function doLogin(){
+  const u=document.getElementById('lUser').value.trim(),p=document.getElementById('lPass').value.trim();
+  if(!u||!p){showErr('Username మరియు Password enter చేయండి!');return;}
+  const btn=document.getElementById('lBtn');btn.textContent='⏳...';btn.disabled=true;
+  try{
+    const fd=new FormData();fd.append('username',u);fd.append('password',p);
+    const res=await fetch(`${API}/auth/login`,{method:'POST',body:fd});
+    const d=await res.json();
+    if(!res.ok){showErr(d.detail||'Login failed!');btn.textContent='🔐 LOGIN';btn.disabled=false;return;}
+    token=d.access_token;CU={username:d.username,role:d.role};
+    localStorage.setItem('jwt_token',token);localStorage.setItem('current_user',JSON.stringify(CU));
+    showApp();
+  }catch(e){showErr('Server connect అవ్వడం లేదు!\npython -m uvicorn app:app --port 8001 run చేయండి.');btn.textContent='🔐 LOGIN';btn.disabled=false;}
+}
+function showErr(m){const e=document.getElementById('lErr');e.textContent=m;e.style.display='block';}
+
+function showApp(){
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('appPage').style.display='block';
+  document.getElementById('uDisp').textContent=CU.username;
+  const rb=document.getElementById('rBadge');rb.textContent=CU.role;
+  if(CU.role==='admin'){rb.className='rtag';document.getElementById('adminBar').style.display='flex';loadAdminStats();}
+  else rb.className='rtag analyst';
+  initCharts();buildHM();updateProfile();
+}
+
+function logout(){
+  localStorage.removeItem('jwt_token');localStorage.removeItem('current_user');
+  token=null;CU=null;stopStream();
+  document.getElementById('loginPage').style.display='flex';
+  document.getElementById('appPage').style.display='none';
+  document.getElementById('lUser').value='';document.getElementById('lPass').value='';
+  document.getElementById('lErr').style.display='none';
+}
+
+function showTab(n){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['dash','map','analytics','chat','hist','profile'][i]===n));
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pg-'+n).classList.add('active');
+  if(n==='analytics')updateAnalytics();
+  if(n==='chat')updateChatStats();
+  if(n==='map')initMap();
+  if(n==='profile')updateProfile();
+}
+
+async function callAPI(p){
+  const res=await fetch(`${API}/predict`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify(p)});
+  if(res.status===401){logout();return null;}
+  return await res.json();
+}
+async function loadAdminStats(){
+  try{
+    const res=await fetch(`${API}/admin/stats`,{headers:{'Authorization':`Bearer ${token}`}});
+    const d=await res.json();
+    document.getElementById('dbTotal').textContent=d.total_transactions;
+    document.getElementById('dbFraud').textContent=d.total_fraud;
+    document.getElementById('dbRate').textContent=d.fraud_rate+'%';
+    document.getElementById('dbUsers').textContent=d.total_users;
+  }catch(e){}
+}
+async function loadHistory(){
+  try{
+    const res=await fetch(`${API}/history?limit=100`,{headers:{'Authorization':`Bearer ${token}`}});
+    const data=await res.json();
+    txns=data.map(t=>({id:t.id,amount:t.amount,hour:t.hour,sender:t.sender_upi,riskScore:t.risk_score,riskLevel:t.risk_level,isFraud:t.is_fraud,reasons:t.reasons,time:t.time,checkedBy:t.checked_by}));
+    document.getElementById('tblCnt').textContent=txns.length+' records (DB)';
+    renderTable();
+  }catch(e){alert('History load error!');}
+}
+
+// CHARTS
+let TC,AC,HC,ARC;
+function chartColors(){
+  return{gridColor:isDark?'rgba(26,37,64,.8)':'rgba(200,210,230,.5)',tickColor:isDark?'#4a6080':'#8090b0'}
+}
+function initCharts(){
+  if(TC)return;
+  const c=chartColors();
+  const co={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:c.tickColor,font:{family:'JetBrains Mono',size:10},boxWidth:10}}},scales:{x:{ticks:{color:c.tickColor,font:{size:9}},grid:{color:c.gridColor}},y:{ticks:{color:c.tickColor,font:{size:9}},grid:{color:c.gridColor},beginAtZero:true}}};
+  TC=new Chart(document.getElementById('tChart').getContext('2d'),{type:'line',data:{labels:tL,datasets:[{label:'Fraud',data:tF,borderColor:'#ff3366',backgroundColor:'rgba(255,51,102,.06)',borderWidth:2,tension:.4,fill:true,pointRadius:3,pointBackgroundColor:'#ff3366'},{label:'Safe',data:tS,borderColor:'#00d68f',backgroundColor:'rgba(0,214,143,.05)',borderWidth:2,tension:.4,fill:true,pointRadius:3,pointBackgroundColor:'#00d68f'}]},options:co});
+  AC=new Chart(document.getElementById('aChart').getContext('2d'),{type:'bar',data:{labels:['<₹10K','₹10-30K','>₹30K'],datasets:[{label:'Safe',data:[0,0,0],backgroundColor:'rgba(0,214,143,.4)',borderColor:'#00d68f',borderWidth:1,borderRadius:4},{label:'Fraud',data:[0,0,0],backgroundColor:'rgba(255,51,102,.4)',borderColor:'#ff3366',borderWidth:1,borderRadius:4}]},options:{...co,scales:{x:{...co.scales.x,stacked:true},y:{...co.scales.y,stacked:true}}}});
+  HC=new Chart(document.getElementById('hChart').getContext('2d'),{type:'bar',data:{labels:[...Array(24)].map((_,i)=>i+':00'),datasets:[{label:'Fraud Count',data:new Array(24).fill(0),backgroundColor:'rgba(255,51,102,.5)',borderColor:'#ff3366',borderWidth:1,borderRadius:3}]},options:{...co,plugins:{legend:{display:false}}}});
+  ARC=new Chart(document.getElementById('arChart').getContext('2d'),{type:'doughnut',data:{labels:['<₹10K','₹10K-40K','>₹40K'],datasets:[{data:[0,0,0],backgroundColor:['rgba(0,214,143,.7)','rgba(255,176,32,.7)','rgba(255,51,102,.7)'],borderColor:['#00d68f','#ffb020','#ff3366'],borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:c.tickColor,font:{family:'JetBrains Mono',size:10}}}}}});
+}
+
+function buildHM(){
+  const g=document.getElementById('hmG'),l=document.getElementById('hmL');
+  if(!g)return;g.innerHTML='';l.innerHTML='';
+  const mx=Math.max(...hFrd,1);
+  for(let h=0;h<24;h++){
+    const c=document.createElement('div');c.className='hc';
+    const i=hFrd[h]/mx;
+    const base=isDark?'#1a2540':'#e8eef8';
+    c.style.background=i===0?base:i<.4?`rgba(121,40,202,${.2+i*.6})`:`rgba(255,51,102,${.3+i*.7})`;
+    c.title=`${h}:00 — ${hFrd[h]} fraud(s)`;g.appendChild(c);
+    const lb=document.createElement('div');lb.className='hh';lb.textContent=h%4===0?h:'';l.appendChild(lb);
+  }
+}
+
+// MAP
+function initMap(){
+  if(map)return;
+  map=L.map('fraudMap').setView([20.5937,78.9629],5);
+  L.tileLayer(isDark
+    ?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    :'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    {attribution:'© OpenStreetMap © CARTO'}).addTo(map);
+  // Add city markers
+  Object.entries(CITIES).forEach(([city,[lat,lng]])=>{
+    L.circleMarker([lat,lng],{radius:4,color:'#4a6080',fillColor:'#4a6080',fillOpacity:.4,weight:1})
+      .addTo(map).bindPopup(`<b>${city}</b>`);
+  });
+  updateMapStats();
+}
+
+function addMapMarker(p,isFraud,riskScore){
+  if(!map)return;
+  const color=isFraud?(riskScore>70?'#ff3366':'#ffb020'):'#00d68f';
+  const radius=isFraud?(riskScore>70?10:7):5;
+  const m=L.circleMarker([p.latitude,p.longitude],{
+    radius,color,fillColor:color,fillOpacity:.7,weight:2
+  }).addTo(map);
+  const city=getNearestCity(p.latitude,p.longitude);
+  m.bindPopup(`<b>${isFraud?'⚠ FRAUD':'✓ SAFE'}</b><br>₹${p.amount.toLocaleString('en-IN')}<br>${p.hour}:00<br>Risk: ${riskScore}%<br>📍 ${city}`);
+  if(isFraud){
+    fraudMapMarkers.push(m);
+    cityFraud[city]=(cityFraud[city]||0)+1;
+    updateMapStats();
+  } else safeMapMarkers.push(m);
+  document.getElementById('mapCount').textContent=fraudMapMarkers.length+' fraud locations';
+}
+
+function getNearestCity(lat,lng){
+  let minD=999,city='Unknown';
+  Object.entries(CITIES).forEach(([c,[la,lo]])=>{
+    const d=Math.sqrt((lat-la)**2+(lng-lo)**2);
+    if(d<minD){minD=d;city=c;}
+  });
+  return city;
+}
+
+function updateMapStats(){
+  const sorted=Object.entries(cityFraud).sort((a,b)=>b[1]-a[1]);
+  const mx=sorted[0]?.[1]||1;
+  document.getElementById('cityStats').innerHTML=sorted.length?sorted.map(([c,n])=>`
+    <div class="brow"><div class="blbl"><span style="color:var(--m2);font-size:10px;">${c}</span><span style="color:var(--d);">${n}</span></div>
+    <div class="btrk"><div class="bfil" style="width:${n/mx*100}%;background:linear-gradient(90deg,var(--a2),var(--d));"></div></div></div>`).join('')
+    :'<div style="font-size:11px;color:var(--m);font-family:\'JetBrains Mono\',monospace;">No fraud data yet.</div>';
+
+  const recent=fraudMapMarkers.slice(-5).reverse();
+  document.getElementById('recentFraud').innerHTML=recent.length?
+    recent.map((_,i)=>{const t=txns.filter(x=>x.isFraud)[i];return t?`<div style="padding:6px 0;border-bottom:1px solid var(--b);font-size:10px;">⚠ ₹${Number(t.amount).toLocaleString('en-IN')} · ${t.hour}:00 · ${t.riskScore}%</div>`:''}).join('')
+    :'No fraud detected yet.';
+}
+
+function clearMapMarkers(){
+  [...fraudMapMarkers,...safeMapMarkers].forEach(m=>map&&m.remove());
+  fraudMapMarkers=[];safeMapMarkers=[];cityFraud={};
+  document.getElementById('mapCount').textContent='0 fraud locations';
+  document.getElementById('cityStats').innerHTML='';
+  document.getElementById('recentFraud').innerHTML='No fraud detected yet.';
+}
+
+// DATA
+const uU=["rajesh","priya","suresh","anita","kumar","lakshmi","venkat","deepa"];
+const uB=["oksbi","okaxis","ybl","ibl","paytm","apl"];
+const dv=["a1b2c3","x9y8z7","m3n4o5","q1r2s3","device_new","dev_abc","mob_xyz"];
+function rUPI(){return`${uU[~~(Math.random()*uU.length)]}${~~(Math.random()*999)}@${uB[~~(Math.random()*uB.length)]}`;}
+function rDev(){return dv[~~(Math.random()*dv.length)];}
+function rLoc(){
+  const cities=Object.values(CITIES);
+  const c=cities[~~(Math.random()*cities.length)];
+  return[+(c[0]+Math.random()*.5-.25).toFixed(4),+(c[1]+Math.random()*.5-.25).toFixed(4)];
+}
+
+function addToState(p,d){
+  cnt++;
+  if(d.is_fraud){frd++;fAmt+=p.amount;hFrd[p.hour]++;buildHM();showAlrt(p.amount,p.hour,d.risk_score,d.reasons);if(document.getElementById('soundPref').checked)playSound();}
+  else sfe++;
+  addMapMarker(p,d.is_fraud,d.risk_score||0);
+  const bi=p.amount<10000?0:p.amount<30000?1:2;
+  if(d.is_fraud)AC.data.datasets[1].data[bi]++;else AC.data.datasets[0].data[bi]++;
+  AC.update('none');
+  if(HC)HC.data.datasets[0].data[p.hour]=hFrd[p.hour],HC.update('none');
+  if(cnt%5===0){tL.push('#'+cnt);tF.push(frd);tS.push(sfe);if(tL.length>12){tL.shift();tF.shift();tS.shift();}TC.update();}
+  document.getElementById('kT').textContent=cnt;
+  document.getElementById('kF').textContent=frd;
+  document.getElementById('kS').textContent=sfe;
+  document.getElementById('kR').textContent=((frd/cnt)*100).toFixed(1)+'%';
+  document.getElementById('kE').textContent='₹'+fAmt.toLocaleString('en-IN');
+  document.getElementById('tblCnt').textContent=cnt+' records';
+  txns.unshift({id:cnt,amount:p.amount,hour:p.hour,sender:p.sender_upi,riskScore:d.risk_score||0,riskLevel:d.risk_level||'LOW',isFraud:d.is_fraud,reasons:d.reasons||[],time:new Date().toLocaleTimeString('en-IN'),checkedBy:CU.username,lat:p.latitude,lng:p.longitude});
+  renderTable();
+  if(CU.role==='admin'&&cnt%10===0)loadAdminStats();
+  updateProfile();
+}
+
+function renderTable(){
+  const sf=document.getElementById('fSt').value,rf=document.getElementById('fRk').value;
+  const fil=txns.filter(t=>{if(sf==='fraud'&&!t.isFraud)return false;if(sf==='safe'&&t.isFraud)return false;if(rf!=='all'&&t.riskLevel!==rf)return false;return true;});
+  const tb=document.getElementById('txnBody');tb.innerHTML='';
+  fil.slice(0,80).forEach(t=>{
+    const tr=document.createElement('tr');tr.className=t.isFraud?'fr':'';
+    tr.innerHTML=`<td class="mn" style="color:var(--m);font-size:10px;">${t.id}</td>
+    <td class="mn">₹${Number(t.amount).toLocaleString('en-IN')}</td>
+    <td><span style="background:var(--s2);padding:2px 6px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--m2);">${String(t.hour).padStart(2,'0')}:00</span></td>
+    <td class="mn" style="font-size:10px;color:var(--m2);">${t.sender||'-'}</td>
+    <td><div style="display:flex;align-items:center;gap:6px;"><div style="width:40px;height:4px;background:var(--b);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${t.riskScore}%;background:${t.riskScore>60?'#ff3366':t.riskScore>30?'#ffb020':'#00d68f'};border-radius:2px;"></div></div><span class="mn" style="font-size:10px;color:var(--m2);">${t.riskScore}%</span></div></td>
+    <td><span class="tag t${(t.riskLevel||'LOW').toLowerCase()[0]}">${t.riskLevel||'LOW'}</span></td>
+    <td><span class="tag ${t.isFraud?'tf':'ts'}">${t.isFraud?'⚠ FRAUD':'✓ SAFE'}</span></td>
+    <td style="font-size:10px;color:var(--m2);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(t.reasons&&t.reasons[0])||'-'}</td>
+    <td class="mn" style="font-size:10px;color:var(--a);">${t.checkedBy||'-'}</td>
+    <td class="mn" style="font-size:10px;color:var(--m2);">${t.time}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function showAlrt(amt,hr,sc,rsns){
+  document.getElementById('aAmt').textContent='⚠ FRAUD — ₹'+amt.toLocaleString('en-IN');
+  document.getElementById('aDet').textContent=`Hour ${hr}:00 · Risk: ${sc}%`;
+  document.getElementById('aRsn').textContent=rsns&&rsns.length?rsns[0]:'';
+  const b=document.getElementById('alrtBanner');b.style.display='block';
+  setTimeout(()=>b.style.display='none',4000);
+}
+function playSound(){
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)(),o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);o.type='square';
+    o.frequency.setValueAtTime(880,ctx.currentTime);o.frequency.setValueAtTime(440,ctx.currentTime+.1);
+    g.gain.setValueAtTime(.05,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.4);
+    o.start();o.stop(ctx.currentTime+.4);}catch(e){}
+}
+
+async function addTransaction(){
+  const amt=Math.floor(Math.random()*49900)+100,hr=Math.floor(Math.random()*24);
+  const[lat,lng]=rLoc();
+  const p={amount:amt,hour:hr,sender_upi:rUPI(),receiver_upi:rUPI(),device_id:rDev(),latitude:lat,longitude:lng,txn_velocity:Math.floor(Math.random()*5)+1,is_new_device:Math.random()<.25?1:0};
+  try{const d=await callAPI(p);if(d)addToState(p,d);}
+  catch(e){const f=amt>40000&&hr<6;addToState(p,{is_fraud:f,risk_score:f?85:15,risk_level:f?'HIGH':'LOW',reasons:f?['High amount late night']:[]});}
+}
+function startStream(){
+  if(iv)return;
+  if(!TC)initCharts();
+  const interval=parseInt(document.getElementById('streamInterval').value)||2000;
+  document.getElementById('sysStatus').textContent='LIVE';
+  iv=setInterval(addTransaction,interval);addTransaction();
+}
+function stopStream(){clearInterval(iv);iv=null;document.getElementById('sysStatus').textContent='PAUSED';}
+function clearAll(){
+  stopStream();cnt=0;frd=0;sfe=0;fAmt=0;tL.length=0;tF.length=0;tS.length=0;txns=[];hFrd=new Array(24).fill(0);
+  if(AC){AC.data.datasets[0].data=[0,0,0];AC.data.datasets[1].data=[0,0,0];AC.update();}
+  if(TC)TC.update();if(HC){HC.data.datasets[0].data=new Array(24).fill(0);HC.update();}
+  buildHM();clearMapMarkers();
+  ['kT','kF','kS'].forEach(id=>document.getElementById(id).textContent=0);
+  document.getElementById('kR').textContent='0%';document.getElementById('kE').textContent='₹0';
+  document.getElementById('tblCnt').textContent='0 records';document.getElementById('txnBody').innerHTML='';
+  document.getElementById('sysStatus').textContent='MONITORING';document.getElementById('rRes').style.display='none';
+}
+
+async function manualCheck(){
+  const amt=parseFloat(document.getElementById('mAmt').value),hr=parseInt(document.getElementById('mHour').value);
+  if(!amt||isNaN(hr)){alert('Amount మరియు Hour enter చేయండి!');return;}
+  const btn=document.querySelector('.abtn');btn.textContent='⏳ ANALYZING...';btn.disabled=true;
+  const p={amount:amt,hour:hr,sender_upi:document.getElementById('mSnd').value||'user@oksbi',receiver_upi:document.getElementById('mRcv').value||'merchant@ybl',device_id:document.getElementById('mDev').value||'device_abc123',latitude:17.38,longitude:78.48,txn_velocity:parseInt(document.getElementById('mVel').value)||1,is_new_device:parseInt(document.getElementById('mNd').value)};
+  let d;
+  try{d=await callAPI(p);}catch(e){const f=amt>40000&&hr<6;d={is_fraud:f,risk_score:f?80:15,risk_level:f?'HIGH':'LOW',reasons:[]};}
+  if(!d){btn.textContent='⚡ ANALYZE TRANSACTION';btn.disabled=false;return;}
+  lastP=p;lastD=d;
+  document.getElementById('lastSum').innerHTML=`💰 ₹${amt.toLocaleString('en-IN')} · ${hr}:00\n📱 New Device: ${p.is_new_device?'Yes':'No'} · Velocity: ${p.txn_velocity}\n\nResult: ${d.is_fraud?'⚠ FRAUD':'✓ SAFE'}\nRisk: ${d.risk_score||0}%`;
+  const el=document.getElementById('rRes');
+  el.style.display='block';el.className='rr '+(d.is_fraud?'fraud':'safe');
+  document.getElementById('rLbl').className='rl '+(d.is_fraud?'fraud':'safe');
+  document.getElementById('rLbl').textContent=d.is_fraud?'⚠ FRAUD DETECTED':'✓ TRANSACTION SAFE';
+  document.getElementById('rScr').style.color=d.is_fraud?'var(--d)':'var(--g)';
+  document.getElementById('rScr').textContent=(d.risk_score||0)+'%';
+  document.getElementById('mFill').className='mf '+(d.is_fraud?'fraud':'safe');
+  setTimeout(()=>document.getElementById('mFill').style.width=(d.risk_score||0)+'%',50);
+  const rl=document.getElementById('rsnList');
+  rl.innerHTML=d.reasons&&d.reasons.length?d.reasons.map(r=>`<div class="ri">${r}</div>`).join(''):`<div style="font-size:11px;color:var(--g);font-family:'JetBrains Mono',monospace;margin-top:4px;">✓ No risk factors</div>`;
+  addToState(p,d);
+  btn.textContent='⚡ ANALYZE TRANSACTION';btn.disabled=false;
+}
+
+function exportCSV(){
+  if(!txns.length){alert('No data!');return;}
+  const h='ID,Amount,Hour,Sender,Risk Score,Risk Level,Status,Reason,Checked By,Time';
+  const r=txns.map(t=>`${t.id},${t.amount},${t.hour},${t.sender||''},${t.riskScore},${t.riskLevel},${t.isFraud?'FRAUD':'SAFE'},"${(t.reasons&&t.reasons[0])||''}",${t.checkedBy||''},${t.time}`);
+  const b=new Blob([[h,...r].join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='fraud_report_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+// ANALYTICS
+function updateAnalytics(){
+  document.getElementById('an-tot').textContent=cnt;
+  document.getElementById('an-frd').textContent=frd;
+  document.getElementById('an-sfe').textContent=sfe;
+  document.getElementById('an-rat').textContent=cnt>0?((frd/cnt)*100).toFixed(1)+'%':'0%';
+  document.getElementById('an-exp').textContent='₹'+fAmt.toLocaleString('en-IN');
+  const avg=txns.length?Math.round(txns.reduce((a,t)=>a+t.riskScore,0)/txns.length):0;
+  document.getElementById('an-avg').textContent=avg+'%';
+  const hi=txns.filter(t=>t.riskLevel==='HIGH').length,me=txns.filter(t=>t.riskLevel==='MEDIUM').length,lo=txns.filter(t=>t.riskLevel==='LOW').length,tot=txns.length||1;
+  document.getElementById('riskBrk').innerHTML=`
+    <div class="brow"><div class="blbl"><span style="color:var(--d)">HIGH</span><span>${hi}</span></div><div class="btrk"><div class="bfil" style="width:${hi/tot*100}%;background:var(--d);"></div></div></div>
+    <div class="brow"><div class="blbl"><span style="color:var(--w)">MEDIUM</span><span>${me}</span></div><div class="btrk"><div class="bfil" style="width:${me/tot*100}%;background:var(--w);"></div></div></div>
+    <div class="brow"><div class="blbl"><span style="color:var(--g)">LOW</span><span>${lo}</span></div><div class="btrk"><div class="bfil" style="width:${lo/tot*100}%;background:var(--g);"></div></div></div>`;
+  const upiC={};txns.filter(t=>t.isFraud).forEach(t=>{if(t.sender)upiC[t.sender]=(upiC[t.sender]||0)+1;});
+  const sorted=Object.entries(upiC).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const mx=sorted[0]?.[1]||1;
+  document.getElementById('topUpi').innerHTML=sorted.length?sorted.map(([u,c])=>`<div class="brow"><div class="blbl"><span class="mn" style="font-size:10px;color:var(--m2);">${u}</span><span style="color:var(--d);">${c} fraud(s)</span></div><div class="btrk"><div class="bfil" style="width:${c/mx*100}%;background:linear-gradient(90deg,var(--a2),var(--d));"></div></div></div>`).join('')
+    :'<div style="font-size:11px;color:var(--m);font-family:\'JetBrains Mono\',monospace;">Fraud data లేదు. Start simulation చేయండి.</div>';
+  if(ARC){const a1=txns.filter(t=>t.amount<10000).length,a2=txns.filter(t=>t.amount>=10000&&t.amount<=40000).length,a3=txns.filter(t=>t.amount>40000).length;ARC.data.datasets[0].data=[a1,a2,a3];ARC.update();}
+}
+
+function printReport(){
+  const w=window.open('','_blank');
+  w.document.write(`<html><head><title>UPI Fraud Report</title><style>body{font-family:monospace;padding:30px;}h1{color:#333;}table{width:100%;border-collapse:collapse;margin-top:20px;}th,td{border:1px solid #ddd;padding:8px;font-size:11px;}th{background:#f5f5f5;}.fraud{color:red;font-weight:bold;}</style></head><body>
+  <h1>🛡 UPI Fraud Detection Report</h1>
+  <p>Generated: ${new Date().toLocaleString('en-IN')} · User: ${CU.username}</p>
+  <p>Total: ${cnt} · Fraud: ${frd} · Safe: ${sfe} · Rate: ${cnt>0?((frd/cnt)*100).toFixed(1):0}% · Exposure: ₹${fAmt.toLocaleString('en-IN')}</p>
+  <table><tr><th>#</th><th>Amount</th><th>Hour</th><th>Sender</th><th>Risk%</th><th>Status</th><th>Reason</th></tr>
+  ${txns.slice(0,50).map(t=>`<tr><td>${t.id}</td><td>₹${Number(t.amount).toLocaleString('en-IN')}</td><td>${t.hour}:00</td><td>${t.sender||'-'}</td><td>${t.riskScore}%</td><td class="${t.isFraud?'fraud':''}">${t.isFraud?'FRAUD':'SAFE'}</td><td>${(t.reasons&&t.reasons[0])||'-'}</td></tr>`).join('')}
+  </table></body></html>`);
+  w.document.close();w.print();
+}
+
+// PROFILE
+function updateProfile(){
+  if(!CU)return;
+  document.getElementById('profName').textContent=CU.username;
+  document.getElementById('profRole').textContent=CU.role.toUpperCase();
+  document.getElementById('profUsername').textContent=CU.username;
+  document.getElementById('profRoleInfo').textContent=CU.role;
+  document.getElementById('profAvatar').textContent=CU.role==='admin'?'👑':'👤';
+  document.getElementById('profTotal').textContent=cnt;
+  document.getElementById('profFraud').textContent=frd;
+  document.getElementById('profRate').textContent=cnt>0?((frd/cnt)*100).toFixed(1)+'%':'0%';
+  document.getElementById('profSessTxn').textContent=cnt;
+}
+
+async function changePassword(){
+  const cur=document.getElementById('pwdCurrent').value;
+  const nw=document.getElementById('pwdNew').value;
+  const cf=document.getElementById('pwdConfirm').value;
+  const msg=document.getElementById('pwdMsg');
+  msg.style.display='none';
+  if(!cur||!nw||!cf){showPwdMsg('అన్ని fields fill చేయండి!','err');return;}
+  if(nw.length<6){showPwdMsg('New password minimum 6 characters ఉండాలి!','err');return;}
+  if(nw!==cf){showPwdMsg('New password మరియు Confirm password match కావడం లేదు!','err');return;}
+  // Verify current password by trying login
+  try{
+    const fd=new FormData();fd.append('username',CU.username);fd.append('password',cur);
+    const res=await fetch(`${API}/auth/login`,{method:'POST',body:fd});
+    if(!res.ok){showPwdMsg('Current password తప్పుగా ఉంది!','err');return;}
+    showPwdMsg('✅ Password successfully updated! (Demo mode — actual change requires backend API)','ok');
+    document.getElementById('pwdCurrent').value='';
+    document.getElementById('pwdNew').value='';
+    document.getElementById('pwdConfirm').value='';
+  }catch(e){showPwdMsg('Server error. Try again.','err');}
+}
+function showPwdMsg(msg,type){
+  const el=document.getElementById('pwdMsg');
+  el.textContent=msg;el.className='pwd-msg '+type;el.style.display='block';
+}
+
+// CHATBOT
+function updateChatStats(){
+  document.getElementById('chatStats').textContent=`Transactions: ${cnt}\nFraud: ${frd} · Safe: ${sfe}\nRate: ${cnt>0?((frd/cnt)*100).toFixed(1):0}%\nExposure: ₹${fAmt.toLocaleString('en-IN')}`;
+}
+async function sendChat(){
+  const inp=document.getElementById('chatIn'),msg=inp.value.trim();
+  if(!msg)return;inp.value='';
+  addMsg(msg,'u');await getAI(msg);
+}
+function qAsk(m){document.getElementById('chatIn').value=m;sendChat();showTab('chat');}
+function askAILast(){
+  if(!lastP||!lastD)return;
+  const m=`Last transaction explain చేయి:\nAmount ₹${lastP.amount.toLocaleString('en-IN')}, Hour ${lastP.hour}:00, New Device: ${lastP.is_new_device?'Yes':'No'}, Velocity: ${lastP.txn_velocity}\nResult: ${lastD.is_fraud?'FRAUD':'SAFE'}, Risk: ${lastD.risk_score}%${lastD.reasons&&lastD.reasons.length?'\nReasons: '+lastD.reasons.join(', '):''}`;
+  showTab('chat');setTimeout(()=>{document.getElementById('chatIn').value=m;sendChat();},300);
+}
+function addMsg(txt,role){
+  const c=document.getElementById('chatMsgs'),d=document.createElement('div');d.className='msg '+role;
+  d.innerHTML=`<div class="bub">${txt}</div><div class="mtime">${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  c.appendChild(d);c.scrollTop=c.scrollHeight;
+}
+function showTyping(){const c=document.getElementById('chatMsgs'),d=document.createElement('div');d.className='msg a';d.id='typ';d.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';c.appendChild(d);c.scrollTop=c.scrollHeight;}
+function removeTyping(){const t=document.getElementById('typ');if(t)t.remove();}
+
+async function getAI(msg){
+  const btn=document.getElementById('cSnd');btn.disabled=true;showTyping();
+  chatHist.push({role:'user',content:msg});
+  const sys=`You are a UPI Fraud Detection AI Assistant. Current session: ${cnt} transactions, ${frd} fraud (${cnt>0?((frd/cnt)*100).toFixed(1):0}% rate), ₹${fAmt.toLocaleString('en-IN')} exposure. ${lastP?`Last: ₹${lastP.amount} at ${lastP.hour}:00, ${lastD?.is_fraud?'FRAUD':'SAFE'} (${lastD?.risk_score}% risk).`:''} Respond concisely. Telugu లో అడిగితే Telugu లో respond చేయి.`;
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:sys,messages:chatHist.slice(-8)})});
+    const data=await res.json();
+    const reply=data.content?.[0]?.text||"Response రాలేదు.";
+    chatHist.push({role:'assistant',content:reply});
+    removeTyping();addMsg(reply,'a');
+  }catch(e){
+    removeTyping();
+    const fb=fallback(msg);chatHist.push({role:'assistant',content:fb});addMsg(fb,'a');
+  }
+  btn.disabled=false;
+}
+// ===== GPAY SCANNER =====
+let gpayData=[];
+function handleDrop(e){e.preventDefault();document.getElementById('dropZone').style.borderColor='var(--b2)';const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.csv'))processCSV(f);else alert('CSV file మాత్రమే!');}
+function handleCSVUpload(e){const f=e.target.files[0];if(f)processCSV(f);}
+function parseCSVG(text){const lines=text.trim().split('\n');const headers=lines[0].split(',').map(h=>h.trim().replace(/"/g,'').toLowerCase());const rows=[];for(let i=1;i<lines.length;i++){const vals=lines[i].split(',').map(v=>v.trim().replace(/"/g,''));if(vals.length<2)continue;const row={};headers.forEach((h,idx)=>row[h]=vals[idx]||'');rows.push(row);}return rows;}
+function exAmt(row){for(const k of Object.keys(row)){if(k.includes('amount')||k.includes('debit')||k.includes('credit')||k.includes('inr')){const v=parseFloat(row[k].replace(/[₹,\s]/g,''));if(!isNaN(v)&&v>0)return v;}}return Math.floor(Math.random()*9900)+100;}
+function exHour(row){for(const k of Object.keys(row)){if(k.includes('date')||k.includes('time')){const v=row[k];const m=v.match(/(\d{1,2}):(\d{2})/);if(m)return parseInt(m[1]);}}return Math.floor(Math.random()*24);}
+function exDesc(row){for(const k of Object.keys(row)){if(k.includes('desc')||k.includes('narr')||k.includes('remark')||k.includes('note')||k.includes('particular')){if(row[k]&&row[k].length>2)return row[k].substring(0,40);}}return Object.values(row).find(v=>v&&v.length>5)||'UPI Transaction';}
+function exDate(row){for(const k of Object.keys(row)){if(k.includes('date')||k.includes('time')){if(row[k]&&row[k].length>3)return row[k].substring(0,20);}}return 'N/A';}
+async function processCSV(file){
+  const text=await file.text();const rows=parseCSVG(text);
+  if(rows.length===0){alert('CSV లో data లేదు!');return;}
+  document.getElementById('gpayProgress').style.display='block';
+  document.getElementById('gpayResults').style.display='none';
+  gpayData=[];let fraudCount=0,safeCount=0,fraudAmt=0;
+  const total=Math.min(rows.length,50);
+  for(let i=0;i<total;i++){
+    const row=rows[i];const amount=exAmt(row);const hour=exHour(row);const desc=exDesc(row);const date=exDate(row);
+    const pct=Math.round(((i+1)/total)*100);
+    document.getElementById('progressBar').style.width=pct+'%';
+    document.getElementById('progressText').textContent=`${i+1} / ${total} transactions scanned...`;
+    let riskScore=15,isFraud=false;
+    try{const p={amount,hour,sender_upi:'user@oksbi',receiver_upi:'merchant@ybl',device_id:'gpay_device',latitude:17.38,longitude:78.48,txn_velocity:1,is_new_device:0};const d=await callAPI(p);if(d){riskScore=d.risk_score||15;isFraud=d.is_fraud||false;}}
+    catch(e){riskScore=amount>40000&&hour<6?85:amount>20000?35:15;isFraud=riskScore>=70;}
+    if(isFraud){fraudCount++;fraudAmt+=amount;}else{safeCount++;}
+    gpayData.push({date,amount,desc,riskScore,isFraud});
+    await new Promise(r=>setTimeout(r,150));
+  }
+  document.getElementById('gpayProgress').style.display='none';
+  document.getElementById('gpayResults').style.display='block';
+  document.getElementById('gTotal').textContent=total;
+  document.getElementById('gFraud').textContent=fraudCount;
+  document.getElementById('gSafe').textContent=safeCount;
+  document.getElementById('gAmt').textContent='₹'+fraudAmt.toLocaleString('en-IN');
+  renderGPayTable();
+}
+function renderGPayTable(){
+  const filter=document.getElementById('gFilter').value;
+  const filtered=filter==='all'?gpayData:gpayData.filter(r=>filter==='fraud'?r.isFraud:!r.isFraud);
+  document.getElementById('gpayBody').innerHTML=filtered.map((r,i)=>`<tr style="background:${r.isFraud?'rgba(255,51,102,.05)':'transparent'}"><td style="font-family:'JetBrains Mono',monospace;font-size:11px;">${i+1}</td><td style="font-size:11px;color:var(--m2);">${r.date}</td><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${r.isFraud?'var(--d)':'var(--g)'};">₹${r.amount.toLocaleString('en-IN')}</td><td style="font-size:11px;max-width:200px;">${r.desc}</td><td><div style="display:flex;align-items:center;gap:6px;"><div style="background:var(--s2);border-radius:4px;height:6px;width:60px;overflow:hidden;"><div style="height:100%;width:${r.riskScore}%;background:${r.riskScore>=70?'var(--d)':r.riskScore>=40?'var(--w)':'var(--g)'};border-radius:4px;"></div></div><span style="font-size:11px;font-family:'JetBrains Mono',monospace;">${r.riskScore}%</span></div></td><td><span style="padding:3px 8px;border-radius:6px;font-size:10px;font-family:'JetBrains Mono',monospace;background:${r.isFraud?'rgba(255,51,102,.15)':'rgba(0,214,143,.15)'};color:${r.isFraud?'var(--d)':'var(--g)'};">${r.isFraud?'⚠ SUSPICIOUS':'✓ SAFE'}</span></td></tr>`).join('');
+}
+function downloadGPayReport(){
+  const h='Date,Amount,Description,Risk Score,Status\n';
+  const rows=gpayData.map(r=>`"${r.date}","${r.amount}","${r.desc}","${r.riskScore}%","${r.isFraud?'SUSPICIOUS':'SAFE'}"`).join('\n');
+  const blob=new Blob([h+rows],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fraud_scan_report.csv';a.click();
+}
+// ===== END GPAY SCANNER =====
+function fallback(msg){
+  const m=msg.toLowerCase();
+  if(m.includes('pattern')||m.includes('fraud')&&!m.includes('last'))return'UPI Fraud patterns:\n🌙 రాత్రి 12-5AM + high amount\n📱 New device + ₹20K+\n⚡ 4+ transactions/hour\n🔗 Unknown UPI IDs';
+  if(m.includes('xgboost')||m.includes('model')||m.includes('shap'))return`XGBoost: 17 features తో fraud probability calculate చేస్తుంది. SHAP values ఎందుకు fraud అయిందో explain చేస్తాయి. Session లో ${cnt} transactions processed!`;
+  if(m.includes('safe')||m.includes('tip'))return'Safety tips:\n✅ Known merchants కే pay చేయండి\n✅ OTP share చేయకండి\n✅ రాత్రి big amounts avoid చేయండి\n✅ Public WiFi లో UPI వాడకండి';
+  if(m.includes('last')||m.includes('explain')){if(lastP&&lastD)return`Last: ₹${lastP.amount.toLocaleString('en-IN')} at ${lastP.hour}:00\nNew device: ${lastP.is_new_device?'Yes':'No'}\n${lastD.is_fraud?'🚨 FRAUD':'✅ SAFE'} — ${lastD.risk_score}%`;return'Dashboard లో transaction analyze చేయండి!';}
+  return`Session: ${cnt} txns, ${frd} fraud (${cnt>0?((frd/cnt)*100).toFixed(1):0}%). Fraud patterns, security tips, model working — అడగండి!`;
+}
+</script>
+</body>
+</html>

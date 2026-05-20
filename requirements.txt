@@ -3,3 +3,6 @@ uvicorn[standard]
 pandas
 scikit-learn
 pydantic
+xgboost
+shap
+numpy
